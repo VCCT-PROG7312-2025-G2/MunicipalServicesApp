@@ -1,14 +1,17 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using MunicipalServicesApp.Models;
 using MunicipalServicesApp.Models.CustomCollections;
-using MunicipalServicesApp.Models.ViewModels; // ✅ Added
-using System;
+using MunicipalServicesApp.Models.ViewModels;
+using MunicipalServicesApp.Services;
 using Newtonsoft.Json;
-using Microsoft.AspNetCore.Hosting;
-using System.IO;
-using System.Threading.Tasks;
+using Newtonsoft.Json.Serialization;
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace MunicipalServicesApp.Controllers
 {
@@ -16,250 +19,106 @@ namespace MunicipalServicesApp.Controllers
     {
         private const string NotificationsKey = "UserNotifications";
         private const string ServiceRequestsKey = "UserServiceRequests";
+        private const string UserSessionKey = "CurrentUser";
         private readonly IWebHostEnvironment _environment;
+        private readonly UserService _userService;
 
         public HomeController(IWebHostEnvironment environment)
         {
             _environment = environment;
+            _userService = new UserService();
         }
 
-        private NotificationCollection GetNotifications()
+        // User session management methods
+        private User GetCurrentUser()
         {
-            var notificationsJson = HttpContext.Session.GetString(NotificationsKey);
-            if (string.IsNullOrEmpty(notificationsJson))
+            var userJson = HttpContext.Session.GetString(UserSessionKey);
+            if (string.IsNullOrEmpty(userJson))
+                return null;
+
+            return System.Text.Json.JsonSerializer.Deserialize<User>(userJson);
+        }
+
+        private void SetCurrentUser(User user)
+        {
+            var userJson = System.Text.Json.JsonSerializer.Serialize(user);
+            HttpContext.Session.SetString(UserSessionKey, userJson);
+        }
+
+        private void ClearCurrentUser()
+        {
+            HttpContext.Session.Remove(UserSessionKey);
+        }
+
+        // Authentication check method
+        private IActionResult CheckAuthentication()
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser == null)
             {
-                return CreateSampleNotifications();
+                return RedirectToAction("Login");
+            }
+            ViewBag.CurrentUser = currentUser;
+            return null;
+        }
+
+        // Login actions
+        public IActionResult Login()
+        {
+            var currentUser = GetCurrentUser();
+            if (currentUser != null)
+            {
+                return RedirectToAction("Index");
+            }
+            return View();
+        }
+
+        [HttpPost]
+        public IActionResult Login(LoginViewModel model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
             }
 
-            try
+            var user = _userService.Authenticate(model.Username, model.Password);
+            if (user == null)
             {
-                return DeserializeNotifications(notificationsJson);
-            }
-            catch
-            {
-                return CreateSampleNotifications();
-            }
-        }
-
-        private NotificationCollection CreateSampleNotifications()
-        {
-            var notifications = new NotificationCollection();
-
-            notifications.Add(new Notification
-            {
-                Id = "1",
-                Title = "Water Maintenance Scheduled",
-                Message = "Scheduled water maintenance in your area on Friday from 10:00 to 14:00",
-                Timestamp = DateTime.Now.AddHours(-2),
-                Category = NotificationCategory.General,
-                IsRead = false,
-                UserId = "user123"
-            });
-
-            notifications.Add(new Notification
-            {
-                Id = "2",
-                Title = "Load Shedding Update",
-                Message = "Stage 2 load shedding implemented from 16:00 to 18:00",
-                Timestamp = DateTime.Now.AddHours(-5),
-                Category = NotificationCategory.Emergency,
-                IsRead = false,
-                UserId = "user123"
-            });
-
-            notifications.Add(new Notification
-            {
-                Id = "3",
-                Title = "Service Request Updated",
-                Message = "Your request 'Pothole Repair' has been updated: Assessment team dispatched",
-                Timestamp = DateTime.Now.AddDays(-1),
-                Category = NotificationCategory.ServiceUpdate,
-                IsRead = true,
-                UserId = "user123"
-            });
-
-            SaveNotifications(notifications);
-            return notifications;
-        }
-
-        private void SaveNotifications(NotificationCollection notifications)
-        {
-            HttpContext.Session.SetString(NotificationsKey, SerializeNotifications(notifications));
-        }
-
-        private ServiceRequestCollection GetServiceRequests()
-        {
-            var requestsJson = HttpContext.Session.GetString(ServiceRequestsKey);
-            if (string.IsNullOrEmpty(requestsJson))
-            {
-                return CreateSampleServiceRequests();
+                ModelState.AddModelError("", "Invalid username or password");
+                return View(model);
             }
 
-            try
+            SetCurrentUser(user);
+
+            if (model.RememberMe)
             {
-                return DeserializeServiceRequests(requestsJson);
-            }
-            catch
-            {
-                return CreateSampleServiceRequests();
-            }
-        }
-
-        private ServiceRequestCollection CreateSampleServiceRequests()
-        {
-            var requests = new ServiceRequestCollection();
-
-            var request1 = new ServiceRequest
-            {
-                Id = "1",
-                Title = "Pothole Repair",
-                Description = "Large pothole on Main Street causing traffic issues",
-                Location = "Main Street, City Center",
-                Category = "Roads",
-                CreatedDate = DateTime.Now.AddDays(-2),
-                Status = RequestStatus.InProgress,
-                UserId = "user123"
-            };
-            request1.Updates.Push(new StatusUpdate
-            {
-                Timestamp = DateTime.Now.AddDays(-1),
-                Message = "Assessment team dispatched",
-                UpdatedBy = "Public Works Dept",
-                NewStatus = RequestStatus.InProgress
-            });
-            requests.Add(request1);
-
-            requests.Add(new ServiceRequest
-            {
-                Id = "2",
-                Title = "Street Light Outage",
-                Description = "Street light not working on Oak Avenue",
-                Location = "Oak Avenue, Suburbia",
-                Category = "Utilities",
-                CreatedDate = DateTime.Now.AddDays(-1),
-                Status = RequestStatus.Submitted,
-                UserId = "user123"
-            });
-
-            SaveServiceRequests(requests);
-            return requests;
-        }
-
-        private void SaveServiceRequests(ServiceRequestCollection serviceRequests)
-        {
-            HttpContext.Session.SetString(ServiceRequestsKey, SerializeServiceRequests(serviceRequests));
-        }
-
-        private string SerializeNotifications(NotificationCollection notifications)
-        {
-            var notificationList = notifications.Select(n => new NotificationDto
-            {
-                Id = n.Id,
-                Title = n.Title,
-                Message = n.Message,
-                Timestamp = n.Timestamp,
-                Category = n.Category,
-                IsRead = n.IsRead,
-                UserId = n.UserId
-            }).ToList();
-
-            return JsonConvert.SerializeObject(notificationList);
-        }
-
-        private NotificationCollection DeserializeNotifications(string json)
-        {
-            var notificationDtos = JsonConvert.DeserializeObject<List<NotificationDto>>(json);
-            var collection = new NotificationCollection();
-
-            if (notificationDtos != null)
-            {
-                foreach (var dto in notificationDtos)
+                var options = new CookieOptions
                 {
-                    collection.Add(new Notification
-                    {
-                        Id = dto.Id,
-                        Title = dto.Title,
-                        Message = dto.Message,
-                        Timestamp = dto.Timestamp,
-                        Category = dto.Category,
-                        IsRead = dto.IsRead,
-                        UserId = dto.UserId
-                    });
-                }
+                    Expires = DateTime.Now.AddDays(30),
+                    IsEssential = true
+                };
+                Response.Cookies.Append("UserAuth", user.Username, options);
             }
-            return collection;
+
+            TempData["SuccessMessage"] = $"Welcome back, {user.DisplayName}!";
+            return RedirectToAction("Index");
         }
 
-        private string SerializeServiceRequests(ServiceRequestCollection serviceRequests)
+        [HttpPost]
+        public IActionResult Logout()
         {
-            var requestList = serviceRequests.Select(r => new ServiceRequestDto
-            {
-                Id = r.Id,
-                Title = r.Title,
-                Description = r.Description,
-                Location = r.Location,
-                Category = r.Category,
-                CreatedDate = r.CreatedDate,
-                Status = r.Status,
-                UserId = r.UserId,
-                MediaAttachments = r.MediaAttachments.ToList(),
-                Updates = r.Updates.ToList().Select(u => new StatusUpdateDto
-                {
-                    Timestamp = u.Timestamp,
-                    Message = u.Message,
-                    UpdatedBy = u.UpdatedBy,
-                    NewStatus = u.NewStatus
-                }).ToList()
-            }).ToList();
-
-            return JsonConvert.SerializeObject(requestList);
+            ClearCurrentUser();
+            Response.Cookies.Delete("UserAuth");
+            TempData["SuccessMessage"] = "You have been logged out successfully.";
+            return RedirectToAction("Login");
         }
 
-        private ServiceRequestCollection DeserializeServiceRequests(string json)
-        {
-            var requestDtos = JsonConvert.DeserializeObject<List<ServiceRequestDto>>(json);
-            var collection = new ServiceRequestCollection();
-
-            if (requestDtos != null)
-            {
-                foreach (var dto in requestDtos)
-                {
-                    var request = new ServiceRequest
-                    {
-                        Id = dto.Id,
-                        Title = dto.Title,
-                        Description = dto.Description,
-                        Location = dto.Location,
-                        Category = dto.Category,
-                        CreatedDate = dto.CreatedDate,
-                        Status = dto.Status,
-                        UserId = dto.UserId
-                    };
-
-                    foreach (var media in dto.MediaAttachments)
-                    {
-                        request.MediaAttachments.Push(media);
-                    }
-
-                    foreach (var updateDto in dto.Updates.AsEnumerable().Reverse()) // ✅ fixed
-                    {
-                        request.Updates.Push(new StatusUpdate
-                        {
-                            Timestamp = updateDto.Timestamp,
-                            Message = updateDto.Message,
-                            UpdatedBy = updateDto.UpdatedBy,
-                            NewStatus = updateDto.NewStatus
-                        });
-                    }
-
-                    collection.Add(request);
-                }
-            }
-            return collection;
-        }
-
+        // Updated actions with authentication
         public IActionResult Index()
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             var model = new DashboardViewModel
             {
                 Notifications = GetNotifications(),
@@ -270,23 +129,35 @@ namespace MunicipalServicesApp.Controllers
 
         public IActionResult ServiceRequests()
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             var model = GetServiceRequests();
             return View(model);
         }
 
         public IActionResult Notifications()
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             var model = GetNotifications();
             return View(model);
         }
 
         public IActionResult Settings()
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             return View();
         }
 
         public IActionResult ReportIssue()
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             var model = new ReportIssueViewModel();
             return View(model);
         }
@@ -294,6 +165,9 @@ namespace MunicipalServicesApp.Controllers
         [HttpPost]
         public async Task<IActionResult> SubmitIssue(ReportIssueViewModel model)
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             if (!ModelState.IsValid)
             {
                 return View("ReportIssue", model);
@@ -303,7 +177,7 @@ namespace MunicipalServicesApp.Controllers
 
             var newRequest = new ServiceRequest
             {
-                Id = (requests.Count + 1).ToString(),
+                Id = Guid.NewGuid().ToString(),
                 Title = model.Title,
                 Description = model.Description,
                 Location = model.Location,
@@ -313,7 +187,8 @@ namespace MunicipalServicesApp.Controllers
                 UserId = "user123"
             };
 
-            if (model.MediaFiles != null)
+            // Handle file uploads
+            if (model.MediaFiles != null && model.MediaFiles.Count > 0)
             {
                 var uploadsFolder = Path.Combine(_environment.WebRootPath, "uploads");
                 if (!Directory.Exists(uploadsFolder))
@@ -341,12 +216,13 @@ namespace MunicipalServicesApp.Controllers
             requests.Add(newRequest);
             SaveServiceRequests(requests);
 
+            // Create notification
             var notifications = GetNotifications();
             var notification = new Notification
             {
-                Id = (notifications.Count + 1).ToString(),
+                Id = Guid.NewGuid().ToString(),
                 Title = "Service Request Submitted",
-                Message = $"Your {model.Category} request at {model.Location} has been submitted successfully.",
+                Message = $"Your {model.Category} request '{model.Title}' has been submitted successfully.",
                 Timestamp = DateTime.Now,
                 Category = NotificationCategory.ServiceUpdate,
                 IsRead = false,
@@ -363,12 +239,16 @@ namespace MunicipalServicesApp.Controllers
         [HttpPost]
         public IActionResult MarkAsRead(string id)
         {
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
+
             var notifications = GetNotifications();
             var notification = notifications.FindById(id);
             if (notification != null)
             {
                 notification.IsRead = true;
                 SaveNotifications(notifications);
+                TempData["SuccessMessage"] = "Notification marked as read.";
             }
             return RedirectToAction("Notifications");
         }
@@ -376,51 +256,243 @@ namespace MunicipalServicesApp.Controllers
         [HttpPost]
         public IActionResult MarkAllAsRead()
         {
-            var notifications = GetNotifications();
+            var authResult = CheckAuthentication();
+            if (authResult != null) return authResult;
 
-            foreach (var notification in notifications)
+            var notifications = GetNotifications();
+            var unreadNotifications = notifications.GetUnreadNotifications();
+
+            foreach (var notification in unreadNotifications)
             {
-                if (!notification.IsRead)
-                {
-                    notification.IsRead = true;
-                }
+                notification.IsRead = true;
             }
 
             SaveNotifications(notifications);
+            TempData["SuccessMessage"] = "All notifications marked as read.";
             return RedirectToAction("Notifications");
         }
-    }
 
-    public class NotificationDto
-    {
-        public string Id { get; set; }
-        public string Title { get; set; }
-        public string Message { get; set; }
-        public DateTime Timestamp { get; set; }
-        public NotificationCategory Category { get; set; }
-        public bool IsRead { get; set; }
-        public string UserId { get; set; }
-    }
+        // Existing notification and service request methods 
+        private NotificationCollection GetNotifications()
+        {
+            var notificationsJson = HttpContext.Session.GetString(NotificationsKey);
+            if (string.IsNullOrEmpty(notificationsJson))
+            {
+                return CreateSampleNotifications();
+            }
 
-    public class ServiceRequestDto
-    {
-        public string Id { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
-        public string Location { get; set; }
-        public string Category { get; set; }
-        public DateTime CreatedDate { get; set; }
-        public RequestStatus Status { get; set; }
-        public string UserId { get; set; }
-        public List<string> MediaAttachments { get; set; } = new List<string>();
-        public List<StatusUpdateDto> Updates { get; set; } = new List<StatusUpdateDto>();
-    }
+            return DeserializeNotifications(notificationsJson);
+        }
 
-    public class StatusUpdateDto
-    {
-        public DateTime Timestamp { get; set; }
-        public string Message { get; set; }
-        public string UpdatedBy { get; set; }
-        public RequestStatus NewStatus { get; set; }
+        private NotificationCollection CreateSampleNotifications()
+        {
+            var notifications = new NotificationCollection();
+
+            var sampleNotifications = new[]
+            {
+                new Notification {
+                    Id = "1",
+                    Title = "Water Maintenance Scheduled",
+                    Message = "Scheduled water maintenance in your area on Friday from 10:00 to 14:00",
+                    Timestamp = DateTime.Now.AddHours(-2),
+                    Category = NotificationCategory.General,
+                    IsRead = false,
+                    UserId = "user123"
+                },
+                new Notification {
+                    Id = "2",
+                    Title = "Load Shedding Update",
+                    Message = "Stage 2 load shedding implemented from 16:00 to 18:00",
+                    Timestamp = DateTime.Now.AddHours(-5),
+                    Category = NotificationCategory.Emergency,
+                    IsRead = false,
+                    UserId = "user123"
+                },
+                new Notification {
+                    Id = "3",
+                    Title = "Service Request Updated",
+                    Message = "Your request 'Pothole Repair' has been updated: Assessment team dispatched",
+                    Timestamp = DateTime.Now.AddDays(-1),
+                    Category = NotificationCategory.ServiceUpdate,
+                    IsRead = true,
+                    UserId = "user123"
+                }
+            };
+
+            foreach (var notification in sampleNotifications)
+            {
+                notifications.Add(notification);
+            }
+
+            SaveNotifications(notifications);
+            return notifications;
+        }
+
+        private void SaveNotifications(NotificationCollection notifications)
+        {
+            var notificationList = new List<Notification>();
+            for (int i = 0; i < notifications.Count; i++)
+            {
+                notificationList.Add(notifications.GetAt(i));
+            }
+
+            var settings = new JsonSerializerSettings
+            {
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                Formatting = Formatting.None,
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var json = JsonConvert.SerializeObject(notificationList, settings);
+            HttpContext.Session.SetString(NotificationsKey, json);
+        }
+
+        private NotificationCollection DeserializeNotifications(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return new NotificationCollection();
+
+            try
+            {
+                var settings = new JsonSerializerSettings
+                {
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                    NullValueHandling = NullValueHandling.Ignore
+                };
+
+                var notificationList = JsonConvert.DeserializeObject<List<Notification>>(json, settings);
+                var collection = new NotificationCollection();
+
+                if (notificationList != null)
+                {
+                    foreach (var notification in notificationList)
+                    {
+                        collection.Add(notification);
+                    }
+                }
+                return collection;
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Deserialization error: {ex.Message}");
+                return new NotificationCollection();
+            }
+        }
+
+        private ServiceRequestCollection GetServiceRequests()
+        {
+            var requestsJson = HttpContext.Session.GetString(ServiceRequestsKey);
+            if (string.IsNullOrEmpty(requestsJson))
+            {
+                return CreateSampleServiceRequests();
+            }
+
+            return DeserializeServiceRequests(requestsJson);
+        }
+
+        private ServiceRequestCollection CreateSampleServiceRequests()
+        {
+            var requests = new ServiceRequestCollection();
+
+            var sampleRequests = new[]
+            {
+        new ServiceRequest {
+            Id = "1",
+            Title = "Pothole Repair",
+            Description = "Large pothole on Main Street causing traffic issues",
+            Location = "Main Street, City Center",
+            Category = "Roads",
+            CreatedDate = DateTime.Now.AddDays(-2),
+            Status = RequestStatus.InProgress,
+            UserId = "user123",
+            MediaAttachments = new CustomStack<string>(),
+            Updates = new CustomStack<StatusUpdate>()
+        },
+        new ServiceRequest {
+            Id = "2",
+            Title = "Street Light Outage",
+            Description = "Street light not working on Oak Avenue",
+            Location = "Oak Avenue, Suburbia",
+            Category = "Utilities",
+            CreatedDate = DateTime.Now.AddDays(-1),
+            Status = RequestStatus.Submitted,
+            UserId = "user123",
+            MediaAttachments = new CustomStack<string>(),
+            Updates = new CustomStack<StatusUpdate>()
+        }
+    };
+
+            // Add status update to first request
+            sampleRequests[0].Updates.Push(new StatusUpdate
+            {
+                Timestamp = DateTime.Now.AddDays(-1),
+                Message = "Assessment team dispatched",
+                UpdatedBy = "Public Works Dept",
+                NewStatus = RequestStatus.InProgress
+            });
+
+            foreach (var request in sampleRequests)
+            {
+                requests.Add(request);
+            }
+
+            SaveServiceRequests(requests);
+            return requests;
+        }
+
+        private void SaveServiceRequests(ServiceRequestCollection serviceRequests)
+        {
+            var requestList = new List<ServiceRequest>();
+            for (int i = 0; i < serviceRequests.Count; i++)
+            {
+                requestList.Add(serviceRequests.GetAt(i));
+            }
+
+            var settings = new JsonSerializerSettings
+            {
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                Formatting = Formatting.None,
+                NullValueHandling = NullValueHandling.Ignore
+            };
+
+            var json = JsonConvert.SerializeObject(requestList, settings);
+            HttpContext.Session.SetString(ServiceRequestsKey, json);
+        }
+
+        private ServiceRequestCollection DeserializeServiceRequests(string json)
+        {
+            if (string.IsNullOrEmpty(json))
+                return new ServiceRequestCollection();
+
+            try
+            {
+                var settings = new JsonSerializerSettings
+                {
+                    ReferenceLoopHandling = ReferenceLoopHandling.Ignore,
+                    NullValueHandling = NullValueHandling.Ignore
+                };
+
+                var requestList = JsonConvert.DeserializeObject<List<ServiceRequest>>(json, settings);
+                var collection = new ServiceRequestCollection();
+
+                if (requestList != null)
+                {
+                    foreach (var request in requestList)
+                    {
+                        // Ensure collections are initialized if null
+                        request.MediaAttachments ??= new CustomStack<string>();
+                        request.Updates ??= new CustomStack<StatusUpdate>();
+                        collection.Add(request);
+                    }
+                }
+                return collection;
+            }
+            catch (Exception ex)
+            {
+                // Log the error and return empty collection
+                System.Diagnostics.Debug.WriteLine($"Deserialization error: {ex.Message}");
+                return new ServiceRequestCollection();
+            }
+        }
     }
 }

@@ -85,6 +85,53 @@ namespace MunicipalServicesApp.Models.CustomCollections
             return TryGetValue(key, out _);
         }
 
+        public TValue this[TKey key]
+        {
+            get
+            {
+                if (TryGetValue(key, out TValue value))
+                    return value;
+                throw new KeyNotFoundException();
+            }
+            set
+            {
+                // For simplicity, remove and re-add
+                Remove(key);
+                Add(key, value);
+            }
+        }
+
+        public bool Remove(TKey key)
+        {
+            if (key == null)
+                return false;
+
+            var bucketIndex = GetBucketIndex(key);
+            var currentNode = _buckets[bucketIndex];
+            KeyValueNode previousNode = null;
+
+            while (currentNode != null)
+            {
+                if (currentNode.Key.Equals(key))
+                {
+                    if (previousNode == null)
+                    {
+                        _buckets[bucketIndex] = currentNode.Next;
+                    }
+                    else
+                    {
+                        previousNode.Next = currentNode.Next;
+                    }
+                    _count--;
+                    return true;
+                }
+                previousNode = currentNode;
+                currentNode = currentNode.Next;
+            }
+
+            return false;
+        }
+
         private int GetBucketIndex(TKey key)
         {
             return Math.Abs(key.GetHashCode()) % _buckets.Length;

@@ -12,9 +12,6 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// Add HTTP context accessor
-builder.Services.AddHttpContextAccessor();
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -25,10 +22,10 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles(); // This serves wwwroot files
+app.UseStaticFiles();
 
 app.UseRouting();
-app.UseSession();
+app.UseSession(); // Make sure this is here
 app.UseAuthorization();
 
 app.MapControllerRoute(

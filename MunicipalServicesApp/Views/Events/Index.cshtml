@@ -1,0 +1,175 @@
+﻿@model MunicipalServicesApp.Models.EventSearchViewModel
+@{
+    ViewData["Title"] = "Local Events & Announcements";
+}
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <h2>Local Events & Announcements</h2>
+        <p class="text-muted">Discover upcoming events and community announcements in your area</p>
+    </div>
+</div>
+
+<!-- Search Section -->
+<div class="card mb-4">
+    <div class="card-body">
+        <h5 class="card-title">Search Events</h5>
+        <form asp-action="Search" method="post" class="row g-3">
+            <div class="col-md-4">
+                <input asp-for="SearchTerm" class="form-control" placeholder="Search events...">
+            </div>
+            <div class="col-md-3">
+                <select asp-for="Category" class="form-select">
+                    <option value="">All Categories</option>
+                    @foreach (var category in Model.Categories)
+                    {
+                        <option value="@category">@category</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <input asp-for="SearchDate" type="date" class="form-control">
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="fas fa-search me-2"></i>Search
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Recommendations Section -->
+@if (Model.Recommendations.Any())
+{
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <h4>Recommended For You</h4>
+            <p class="text-muted">Based on your interests and search history</p>
+
+            <div class="row">
+                @foreach (var eventItem in Model.Recommendations)
+                {
+                    <div class="col-md-4 mb-3">
+                        <div class="card h-100 event-card @(eventItem.IsFeatured ? "featured-event" : "")">
+                            <div class="card-body">
+                                <h6 class="card-title">
+                                    @eventItem.Title
+                                    @if (eventItem.IsFeatured)
+                                    {
+                                        <span class="badge bg-warning float-end">Featured</span>
+                                    }
+                                </h6>
+                                <p class="card-text small text-muted">
+                                    <i class="fas fa-calendar me-1"></i>@eventItem.EventDate.ToString("MMM dd, yyyy")<br>
+                                    <i class="fas fa-map-marker-alt me-1"></i>@eventItem.Location<br>
+                                    <i class="fas fa-tag me-1"></i>@eventItem.Category
+                                </p>
+                                <div class="d-grid">
+                                    <a href="@Url.Action("Details", new { id = eventItem.Id })" class="btn btn-outline-primary btn-sm">
+                                        View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<!-- Events Section -->
+<div class="row">
+    <div class="col-md-12">
+        <h4>Upcoming Events</h4>
+
+        @if (!Model.Events.Any())
+        {
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                No events found matching your search criteria.
+            </div>
+        }
+        else
+        {
+            foreach (var eventItem in Model.Events)
+            {
+                <div class="card mb-3 event-card @(eventItem.IsFeatured ? "featured-event" : "")">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <h5 class="card-title">
+                                    @eventItem.Title
+                                    @if (eventItem.IsFeatured)
+                                    {
+                                        <span class="badge bg-warning">Featured</span>
+                                    }
+                                </h5>
+                                <p class="card-text">@eventItem.Description</p>
+                                <div class="event-meta">
+                                    <small class="text-muted">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        <strong>Date:</strong> @eventItem.EventDate.ToString("MMMM dd, yyyy 'at' h:mm tt")<br>
+                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                        <strong>Location:</strong> @eventItem.Location<br>
+                                        <i class="fas fa-tag me-1"></i>
+                                        <strong>Category:</strong> @eventItem.Category<br>
+                                        <i class="fas fa-users me-1"></i>
+                                        <strong>Attendance:</strong> @eventItem.CurrentAttendees/@eventItem.Capacity
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="d-grid gap-2">
+                                    <a href="@Url.Action("Details", new { id = eventItem.Id })" class="btn btn-primary">
+                                        <i class="fas fa-info-circle me-2"></i>View Details
+                                    </a>
+                                    <div class="progress mt-2" style="height: 8px;">
+                                        @{
+                                            var attendancePercent = (double)eventItem.CurrentAttendees / eventItem.Capacity * 100;
+                                        }
+                                        <div class="progress-bar @(attendancePercent >= 80 ? "bg-warning" : "bg-success")"
+                                             role="progressbar" style="width: @attendancePercent%;"
+                                             aria-valuenow="@attendancePercent" aria-valuemin="0" aria-valuemax="100">
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">@attendancePercent.ToString("0")% Full</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .event-card {
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #e9ecef;
+        }
+
+        .event-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .featured-event {
+            border-left: 4px solid #ffc107;
+            background-color: #fffdf6;
+        }
+
+        .event-meta {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .progress {
+            background-color: #e9ecef;
+        }
+    </style>
+}

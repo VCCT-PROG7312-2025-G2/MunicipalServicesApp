@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace MunicipalServicesApp.Models
+namespace MunicipalServicesApp.Models.ViewModels
 {
     public class ReportIssueViewModel
     {

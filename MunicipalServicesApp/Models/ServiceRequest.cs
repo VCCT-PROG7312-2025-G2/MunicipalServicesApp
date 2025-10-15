@@ -12,7 +12,8 @@ namespace MunicipalServicesApp.Models
         public string Location { get; set; }
         public string Category { get; set; }
 
-        [JsonIgnore] 
+        // Use Newtonsoft.Json attributes consistently
+        [JsonProperty("mediaAttachments")]
         public CustomStack<string> MediaAttachments { get; set; }
 
         public DateTime CreatedDate { get; set; }
@@ -20,6 +21,7 @@ namespace MunicipalServicesApp.Models
         public string AssignedDepartment { get; set; }
         public string UserId { get; set; }
 
+        [JsonProperty("updates")]
         public CustomStack<StatusUpdate> Updates { get; set; }
 
         public ServiceRequest()
