@@ -552,9 +552,20 @@ Cost Benefits
 
 
 Reference list
-GeeksforGeeks (2022). Events and Event Handlers in C#. [online] GeeksforGeeks. Available at: https://www.geeksforgeeks.org/c-sharp/events-and-event-handlers-in-c-sharp/ [Accessed 15 Oct. 2025].
-GeeksforGeeks (2024). How to Serialize JSON in JavaScript ? [online] GeeksforGeeks. Available at: https://www.geeksforgeeks.org/javascript/how-to-serialize-json-in-javascript/ [Accessed 15 Oct. 2025].
-tutorials-EU (2025). Using JSON IN C#! Serialization & Deserialization made easy! [online] Youtu.be. Available at: https://youtu.be/w6M-Bj-tfv4?si=-EDJLPgSzcdcLaic [Accessed 15 Oct. 2025].
+GeeksforGeeks (2016). Set in Java. [online] GeeksforGeeks. Available at: https://www.geeksforgeeks.org/java/set-in-java/ [Accessed 12 Nov. 2025]
+
+GeeksforGeeks (2018). LIFO (LastInFirstOut) approach in Programming. [online] GeeksforGeeks. Available at: https://www.geeksforgeeks.org/dsa/lifo-last-in-first-out-approach-in-programming/ [Accessed 12 Nov. 2025].
+
+GeeksforGeeks (2020). Priority Queue using Binary Heap. [online] GeeksforGeeks. Available at: https://www.geeksforgeeks.org/dsa/priority-queue-using-binary-heap/ [Accessed 12 Nov. 2025].
+
+GeeksforGeeks (2021). Session vs Token Based Authentication. [online] GeeksforGeeks. Available at: https://www.geeksforgeeks.org/computer-networks/session-vs-token-based-authentication/.GeeksforGeeks (2022). Events and Event Handlers in C#. [online] 
+
+GeeksforGeeks. Available at: https://www.geeksforgeeks.org/c-sharp/events-and-event-handlers-in-c-sharp/ [Accessed 15 Oct. 2025].GeeksforGeeks (2023). Hash Table Data Structure. [online] 
+
+GeeksforGeeks. Available at: https://www.geeksforgeeks.org/dsa/hash-table-data-structure/ [Accessed 11 Nov. 2025].GeeksforGeeks (2024). How to Serialize JSON in JavaScript ? [online] 
+
+GeeksforGeeks. Available at: https://www.geeksforgeeks.org/javascript/how-to-serialize-json-in-javascript/ [Accessed 15 Oct. 2025].tutorials-EU (2025). Using JSON IN C#! Serialization & Deserialization made easy! [online]
+
+Youtu.be. Available at: https://youtu.be/w6M-Bj-tfv4?si=-EDJLPgSzcdcLaic [Accessed 15 Oct. 2025].
+
 W3schools (2025). C# Exceptions (Try..Catch). [online] www.w3schools.com. Available at: https://www.w3schools.com/cs/cs_exceptions.php [Accessed 15 Oct. 2025].
-
-
